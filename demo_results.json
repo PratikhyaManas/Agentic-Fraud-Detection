@@ -1,0 +1,402 @@
+[
+  {
+    "transaction_id": "TXN-00010900",
+    "amount": 79.65024563708698,
+    "fraud_probability": 1.2006372344330885e-05,
+    "action": "APPROVE",
+    "decision_rationale": "Probability 0.000 below flag threshold (0.25). Approving.",
+    "expected_costs": {
+      "approve": 0.004764784908285283,
+      "flag": 9.000666692246867,
+      "block": 24.99969984069139
+    },
+    "reviewer_summary": "Transaction TXN-00010900 ($79.65) was auto-approved. Fraud probability 0.0% is below the review threshold. No analyst action required.",
+    "top_shap_impacts": [
+      {
+        "feature": "distance_from_last_txn_km",
+        "value": 9.485971404435483,
+        "shap": -3.410163402557373,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 3.410163402557373
+      },
+      {
+        "feature": "hour_of_day",
+        "value": 5.0,
+        "shap": -3.340240716934204,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 3.340240716934204
+      },
+      {
+        "feature": "distance_from_home_km",
+        "value": 1.3629860342324231,
+        "shap": -2.044490337371826,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 2.044490337371826
+      },
+      {
+        "feature": "ratio_to_median_purchase_price",
+        "value": 1.1789922381482998,
+        "shap": -1.9694437980651855,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 1.9694437980651855
+      },
+      {
+        "feature": "amount",
+        "value": 79.65024563708698,
+        "shap": -0.8396708369255066,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 0.8396708369255066
+      }
+    ]
+  },
+  {
+    "transaction_id": "TXN-00037307",
+    "amount": 1251.2797229611192,
+    "fraud_probability": 0.9999576807022095,
+    "action": "BLOCK",
+    "decision_rationale": "Probability 1.000 exceeds hard block threshold (0.85). Expected cost of blocking is lowest.",
+    "expected_costs": {
+      "approve": 535.6878494447049,
+      "flag": 85.35334669389688,
+      "block": 0.0010579824447631836
+    },
+    "reviewer_summary": "Review recommended: $1,251.28 transaction scored 100.0% risk and was blocked. The primary driver is ratio to the cardholder's typical spend (8.56), which strongly elevates risk. Secondary signal: distance from the previous transaction = 53 km. Secondary signal: transaction amount = $1,251. One mitigating factor is whether the physical chip was used, which slightly lowers the score. Hard block applied; customer will need to contact support to proceed.",
+    "top_shap_impacts": [
+      {
+        "feature": "ratio_to_median_purchase_price",
+        "value": 8.559713989934174,
+        "shap": 4.54116678237915,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 4.54116678237915
+      },
+      {
+        "feature": "distance_from_last_txn_km",
+        "value": 52.794877968598286,
+        "shap": 2.74125337600708,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 2.74125337600708
+      },
+      {
+        "feature": "amount",
+        "value": 1251.2797229611192,
+        "shap": 1.8095340728759766,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 1.8095340728759766
+      },
+      {
+        "feature": "used_chip",
+        "value": 1.0,
+        "shap": -0.9768245816230774,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 0.9768245816230774
+      },
+      {
+        "feature": "hour_of_day",
+        "value": 2.0,
+        "shap": 0.7017959952354431,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 0.7017959952354431
+      }
+    ]
+  },
+  {
+    "transaction_id": "TXN-00030688",
+    "amount": 35.43752832592986,
+    "fraud_probability": 3.311778073111782e-06,
+    "action": "APPROVE",
+    "decision_rationale": "Probability 0.000 below flag threshold (0.25). Approving.",
+    "expected_costs": {
+      "approve": 0.001262625159630725,
+      "flag": 9.000176146661651,
+      "block": 24.999917205548172
+    },
+    "reviewer_summary": "Transaction TXN-00030688 ($35.44) was auto-approved. Fraud probability 0.0% is below the review threshold. No analyst action required.",
+    "top_shap_impacts": [
+      {
+        "feature": "hour_of_day",
+        "value": 9.0,
+        "shap": -2.7654080390930176,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 2.7654080390930176
+      },
+      {
+        "feature": "ratio_to_median_purchase_price",
+        "value": 0.9156389958746449,
+        "shap": -2.4009361267089844,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 2.4009361267089844
+      },
+      {
+        "feature": "distance_from_home_km",
+        "value": 2.125523839212201,
+        "shap": -2.0029706954956055,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 2.0029706954956055
+      },
+      {
+        "feature": "distance_from_last_txn_km",
+        "value": 25.011138759174834,
+        "shap": -1.9378756284713745,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 1.9378756284713745
+      },
+      {
+        "feature": "amount",
+        "value": 35.43752832592986,
+        "shap": -1.4989415407180786,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 1.4989415407180786
+      }
+    ]
+  },
+  {
+    "transaction_id": "TXN-00022369",
+    "amount": 806.641378565012,
+    "fraud_probability": 0.9999496936798096,
+    "action": "BLOCK",
+    "decision_rationale": "Probability 1.000 exceeds hard block threshold (0.85). Expected cost of blocking is lowest.",
+    "expected_costs": {
+      "approve": 499.08241333386815,
+      "flag": 79.86256322536099,
+      "block": 0.0012576580047607422
+    },
+    "reviewer_summary": "Review recommended: $806.64 transaction scored 100.0% risk and was blocked. The primary driver is distance from the previous transaction (221 km), which strongly elevates risk. Secondary signal: transaction amount = $807. Secondary signal: ratio to the cardholder's typical spend = 2.43. Note that whether the order was placed online works in the customer's favour and partially offsets the risk. Hard block applied; customer will need to contact support to proceed.",
+    "top_shap_impacts": [
+      {
+        "feature": "distance_from_last_txn_km",
+        "value": 221.48208194928873,
+        "shap": 5.7500104904174805,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 5.7500104904174805
+      },
+      {
+        "feature": "amount",
+        "value": 806.641378565012,
+        "shap": 1.7727152109146118,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 1.7727152109146118
+      },
+      {
+        "feature": "ratio_to_median_purchase_price",
+        "value": 2.4296193017097787,
+        "shap": 1.0376319885253906,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 1.0376319885253906
+      },
+      {
+        "feature": "online_order",
+        "value": 0.0,
+        "shap": -0.8600274920463562,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 0.8600274920463562
+      },
+      {
+        "feature": "distance_from_home_km",
+        "value": 63.082324519565034,
+        "shap": 0.8158175349235535,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 0.8158175349235535
+      }
+    ]
+  },
+  {
+    "transaction_id": "TXN-00017666",
+    "amount": 36.51269185953647,
+    "fraud_probability": 0.9999439716339111,
+    "action": "BLOCK",
+    "decision_rationale": "Probability 1.000 exceeds hard block threshold (0.85). Expected cost of blocking is lowest.",
+    "expected_costs": {
+      "approve": 381.7021223821278,
+      "flag": 62.255542470783524,
+      "block": 0.0014007091522216797
+    },
+    "reviewer_summary": "Transaction of $36.51 has been blocked (model score 100.0%). The primary driver is distance from the previous transaction (143 km), which strongly elevates risk. Secondary signal: ratio to the cardholder's typical spend = 4.30. Secondary signal: distance from the cardholder's home = 117 km. One mitigating factor is transaction amount, which slightly lowers the score. Hard block applied; customer will need to contact support to proceed.",
+    "top_shap_impacts": [
+      {
+        "feature": "distance_from_last_txn_km",
+        "value": 142.9774375302279,
+        "shap": 6.351426124572754,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 6.351426124572754
+      },
+      {
+        "feature": "ratio_to_median_purchase_price",
+        "value": 4.301755942865117,
+        "shap": 4.132508277893066,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 4.132508277893066
+      },
+      {
+        "feature": "distance_from_home_km",
+        "value": 117.24048491834039,
+        "shap": 1.4974632263183594,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 1.4974632263183594
+      },
+      {
+        "feature": "amount",
+        "value": 36.51269185953647,
+        "shap": -1.355627417564392,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 1.355627417564392
+      },
+      {
+        "feature": "used_chip",
+        "value": 1.0,
+        "shap": -0.740590512752533,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 0.740590512752533
+      }
+    ]
+  },
+  {
+    "transaction_id": "TXN-00018102",
+    "amount": 165.50985022911507,
+    "fraud_probability": 0.010091773234307766,
+    "action": "APPROVE",
+    "decision_rationale": "Probability 0.010 below flag threshold (0.25). Approving.",
+    "expected_costs": {
+      "approve": 4.213734957544143,
+      "flag": 9.59169315069439,
+      "block": 24.747705669142306
+    },
+    "reviewer_summary": "Transaction TXN-00018102 ($165.51) was auto-approved. Fraud probability 1.0% is below the review threshold. No analyst action required.",
+    "top_shap_impacts": [
+      {
+        "feature": "distance_from_last_txn_km",
+        "value": 0.13053032663154923,
+        "shap": -3.3369033336639404,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 3.3369033336639404
+      },
+      {
+        "feature": "ratio_to_median_purchase_price",
+        "value": 0.9452277166115902,
+        "shap": -2.2267274856567383,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 2.2267274856567383
+      },
+      {
+        "feature": "used_chip",
+        "value": 1.0,
+        "shap": -1.2841721773147583,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 1.2841721773147583
+      },
+      {
+        "feature": "repeat_retailer",
+        "value": 0.0,
+        "shap": 1.2109605073928833,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 1.2109605073928833
+      },
+      {
+        "feature": "hour_of_day",
+        "value": 22.0,
+        "shap": 0.9111227989196777,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 0.9111227989196777
+      }
+    ]
+  },
+  {
+    "transaction_id": "TXN-00029837",
+    "amount": 31.13655643375517,
+    "fraud_probability": 1.1004824955307413e-05,
+    "action": "APPROVE",
+    "decision_rationale": "Probability 0.000 below flag threshold (0.25). Approving.",
+    "expected_costs": {
+      "approve": 0.0041740758912800135,
+      "flag": 9.00058209208387,
+      "block": 24.999724879376117
+    },
+    "reviewer_summary": "Transaction TXN-00029837 ($31.14) was auto-approved. Fraud probability 0.0% is below the review threshold. No analyst action required.",
+    "top_shap_impacts": [
+      {
+        "feature": "distance_from_last_txn_km",
+        "value": 3.453265054945262,
+        "shap": -3.3329315185546875,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 3.3329315185546875
+      },
+      {
+        "feature": "hour_of_day",
+        "value": 18.0,
+        "shap": -3.195366621017456,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 3.195366621017456
+      },
+      {
+        "feature": "ratio_to_median_purchase_price",
+        "value": 1.4289516806672349,
+        "shap": -1.6072003841400146,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 1.6072003841400146
+      },
+      {
+        "feature": "amount",
+        "value": 31.13655643375517,
+        "shap": -1.1306545734405518,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 1.1306545734405518
+      },
+      {
+        "feature": "repeat_retailer",
+        "value": 1.0,
+        "shap": -0.821918785572052,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 0.821918785572052
+      }
+    ]
+  },
+  {
+    "transaction_id": "TXN-00008535",
+    "amount": 689.08311124612,
+    "fraud_probability": 0.9569855332374573,
+    "action": "BLOCK",
+    "decision_rationale": "Probability 0.957 exceeds hard block threshold (0.85). Expected cost of blocking is lowest.",
+    "expected_costs": {
+      "approve": 466.8314778840831,
+      "flag": 75.19677954966264,
+      "block": 1.0753616690635681
+    },
+    "reviewer_summary": "Review recommended: $689.08 transaction scored 95.7% risk and was blocked. The primary driver is distance from the previous transaction (50 km), which strongly elevates risk. Secondary signal: transaction amount = $689. Secondary signal: whether the physical chip was used = no. One mitigating factor is ratio to the cardholder's typical spend, which slightly lowers the score. Transaction declined at authorisation. Manual override available if needed.",
+    "top_shap_impacts": [
+      {
+        "feature": "ratio_to_median_purchase_price",
+        "value": 0.5,
+        "shap": -3.901658773422241,
+        "direction": "decreases_fraud_risk",
+        "abs_impact": 3.901658773422241
+      },
+      {
+        "feature": "distance_from_last_txn_km",
+        "value": 50.471907155130914,
+        "shap": 2.8144330978393555,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 2.8144330978393555
+      },
+      {
+        "feature": "amount",
+        "value": 689.08311124612,
+        "shap": 1.769104242324829,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 1.769104242324829
+      },
+      {
+        "feature": "used_chip",
+        "value": 0.0,
+        "shap": 1.2088648080825806,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 1.2088648080825806
+      },
+      {
+        "feature": "hour_of_day",
+        "value": 0.0,
+        "shap": 1.015140414237976,
+        "direction": "increases_fraud_risk",
+        "abs_impact": 1.015140414237976
+      }
+    ]
+  }
+]

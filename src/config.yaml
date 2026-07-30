@@ -1,0 +1,17 @@
+# Default cost & threshold configuration for the Decide layer.
+# Edit these values to match your own business economics.
+
+costs:
+  cost_fp: 10.0            # cost of a false positive (review / customer friction)
+  cost_fn: 350.0           # cost of a missed fraud
+  cost_review: 5.0         # cost of sending a transaction to a human analyst
+  cost_block_legit: 25.0   # cost of hard-blocking a legitimate customer
+
+thresholds:
+  flag_threshold: 0.25     # below this → auto-approve
+  block_threshold: 0.85    # above this → hard block
+
+model:
+  n_estimators: 250
+  max_depth: 5
+  learning_rate: 0.07
