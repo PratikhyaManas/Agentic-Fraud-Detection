@@ -152,6 +152,3 @@ print(result.top_shap_impacts)
 
 ---
 
-## Licence
-
-MIT — use freely for learning, demos, or as a starting point for production systems.
