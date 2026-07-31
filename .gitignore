@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+data/transactions.csv
+models/*.pkl
+models/*.json
+models/*.csv
+outputs/*.png
+outputs/*.html
+outputs/*.csv
+.pytest_cache/

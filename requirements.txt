@@ -1,10 +1,26 @@
+# Core
 numpy>=1.24
-pandas>=2.0
-scikit-learn>=1.3
-xgboost>=2.0
+pandas>=1.5
+scikit-learn>=1.2
+
+# PREDICT layer (falls back to sklearn's GradientBoostingClassifier
+# automatically if this isn't installed)
+xgboost>=1.7
+
+# Explanation layer (falls back to a simple z-score based attribution
+# automatically if this isn't installed)
 shap>=0.42
-joblib>=1.3
+
+# ACT layer -- only the one matching whichever API key you set is needed.
+# Groq (Llama 3.3) is used first if GROQ_API_KEY is set; see src/summarize.py
+groq>=0.9        # optional: Groq / Llama 3.3
+openai>=1.0       # optional: OpenAI
+anthropic>=0.34   # optional: Anthropic
+
+# Convenience: auto-loads .env so API keys don't need manual exporting
+python-dotenv>=1.0
+
+# report.py (charts + HTML dashboard)
 matplotlib>=3.7
-seaborn>=0.13
-tqdm>=4.66
-pyyaml>=6.0
+
+pytest>=7.0

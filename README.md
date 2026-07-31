@@ -1,154 +1,221 @@
-# Agentic Fraud-Detection System
+# Agentic Fraud Detection
 
-A from-scratch implementation of the **Predict → Decide → Act** architecture described in the Medium article [*What Building an Agentic Fraud-Detection System Taught Me About Agentic AI*](https://medium.com/@Abd24205/what-building-an-agentic-fraud-detection-system-taught-me-about-agentic-ai-a1e151257ce0).
+A from-scratch implementation of an agentic fraud-detection pipeline:
+**predict → decide → act**, instead of a model that just outputs a
+probability and stops.
 
-This is **not** a traditional score-and-threshold pipeline. The system carries every transaction all the way to an actionable outcome and (when needed) a human-readable explanation.
-
----
+This isn't a from-scratch reimplementation of any specific person's
+codebase — it's an original build of the *architecture pattern* described
+in the write-up "What Building an Agentic Fraud-Detection System Taught Me
+About Agentic AI": a gradient-boosted model scores each transaction, a
+cost-based decision layer turns that score into an action, and for
+anything flagged, an LLM generates a grounded, plain-English summary for
+a human reviewer. It also deliberately reproduces two specific,
+counterintuitive findings from that write-up as runnable checks rather
+than just prose claims (see "What this reproduces, and why" below).
 
 ## Architecture
 
-| Layer | Responsibility | Implementation |
-|-------|----------------|----------------|
-| **Predict** | Output P(fraud) | XGBoost classifier + SHAP TreeExplainer |
-| **Decide** | Map probability → action using real business costs | Cost-sensitive expected-cost minimiser (APPROVE / FLAG / BLOCK) |
-| **Act** | Produce an analyst-ready summary | Grounded natural-language generator (LLM-ready interface; template engine used offline) |
-
 ```
-Transaction
-    │
-    ▼
-┌─────────────┐
-│   Predict   │  XGBoost → p_fraud + SHAP impacts
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│   Decide    │  minimise E[cost] under FP/FN/review costs
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│    Act      │  reviewer summary (only for FLAG / BLOCK)
-└─────────────┘
+transaction
+     │
+     ▼
+┌─────────────┐   fraud probability   ┌──────────────────┐   action    ┌────────────────────┐
+│   PREDICT   │ ───────────────────►  │      DECIDE       │ ──────────► │        ACT          │
+│ (src/model) │                       │ (src/decision)     │             │ (src/explain +      │
+│ XGBoost /   │                       │ cost-based          │             │  src/summarize)      │
+│ sklearn GBC │                       │ two-threshold        │             │ SHAP -> semantic     │
+└─────────────┘                       │ review/block layer   │             │ signals -> LLM       │
+                                       └──────────────────┘             │ reviewer summary      │
+                                                                          └────────────────────┘
 ```
 
-### Why cost-based decisioning matters
+| Layer | Module | What it does |
+|---|---|---|
+| Predict | `src/model.py` | Gradient-boosted classifier (XGBoost, or sklearn's `GradientBoostingClassifier` if xgboost isn't installed) scores each transaction. |
+| Decide | `src/decision.py` | Turns the score into `approve` / `review` / `block` by minimizing total expected cost (false negatives, false positives, and review cost all weighted differently), not a fixed threshold. |
+| Explain | `src/explain.py` | Computes per-transaction SHAP values (or a z-score-based fallback), and converts them into a small vocabulary of semantic signal labels — never raw feature names — before anything reaches the LLM. |
+| Act | `src/summarize.py` | Generates a 2-3 sentence reviewer-facing summary from the semantic signals. Supports Groq (Llama 3.3), OpenAI, or Anthropic; falls back to a grounded template generator if no API key is set. |
+| Orchestration | `src/pipeline.py` | Wires the above into a single `FraudAgent.run(transactions)` call. |
 
-A fixed probability threshold ignores the asymmetric cost of mistakes. In this domain a false negative (missed fraud) is typically 20–50× more expensive than a false positive. The decision layer therefore:
-
-1. Computes the *expected cost* of each action given `p_fraud` and transaction amount.
-2. Applies soft probability guardrails (`flag_threshold`, `block_threshold`).
-3. Selects the minimum-cost action.
-
-You can change the cost matrix in `src/decision.py` (`CostConfig`) without retraining the model.
-
-### Grounded explanations
-
-The Act layer never sees raw internal feature names that would be meaningless to an analyst. It only receives:
-
-- direction of SHAP impact (`increases_fraud_risk` / `decreases_fraud_risk`)
-- human-readable labels
-- the actual feature value
-
-This mirrors the article’s key lesson: keep the LLM (or template engine) strictly grounded so it cannot invent plausible-sounding but incorrect reasons.
-
----
-
-## Quick start
+## Setup
 
 ```bash
-# 1. Install dependencies
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-
-# 2. Train on synthetic data (~40 k transactions)
-python train.py
-
-# 3. Run the live demo (prints full traces)
-python demo.py
 ```
 
-Example output fragment:
+`xgboost` and `shap` are optional — the project runs without them, using
+tested fallbacks (see "Design decisions" below). Install them for the
+real thing.
 
-```
---- Transaction TXN-00012345 ---
-  Amount          : $1,842.00
-  Ground-truth    : FRAUD
-  P(fraud)        : 91.4%
-  Action          : BLOCK
-  Decision reason : Probability 0.914 exceeds hard block threshold (0.85)...
-  Reviewer summary:
-    A $1,842.00 payment was blocked because the fraud probability reached 91.4%.
-    The primary driver is distance from the previous transaction (842 km), which
-    strongly elevates risk. Secondary signal: online order = yes.
-    Hard block applied; customer will need to contact support to proceed.
+For LLM-generated summaries, copy `.env.example` to `.env` and set one
+API key (Groq, OpenAI, or Anthropic — checked in that order):
+
+```bash
+cp .env.example .env
+# edit .env and set e.g. GROQ_API_KEY=...
+export $(cat .env | xargs)   # or use python-dotenv / your shell's method
 ```
 
----
+Without any key set, `src/summarize.py` uses a template-based fallback
+that's still grounded in the actual SHAP signals — no LLM call, no
+hallucination risk, just less varied phrasing.
+
+## Run it
+
+```bash
+python train.py     # generates synthetic data, trains the model, tunes the
+                     # decision layer, runs the cost analyses below, and
+                     # saves the model + decision config + test split to models/
+
+python demo.py       # loads the trained model and runs the full
+                      # predict -> decide -> act pipeline on sample
+                      # transactions, printing decisions + reviewer summaries
+
+python report.py     # generates outputs/report.html -- a self-contained
+                      # dashboard with the ROC curve, cost-sweep curve,
+                      # business-rule comparison chart, and a table of
+                      # sample decisions with reviewer summaries. Open it
+                      # in any browser.
+
+python score.py --input data/transactions.csv --output outputs/scored.csv
+                      # batch-scores any CSV with V1..V28 + Amount columns
+                      # through the full agent and writes a results CSV
+                      # (probability, action, top signals, reviewer summary
+                      # per row). Add --limit N for a quick test.
+```
+
+If you set an API key in `.env` (see Setup above), all three of
+`train.py`, `demo.py`, `report.py`, and `score.py` pick it up
+automatically via `python-dotenv` -- no need to `export` it yourself.
+
+`train.py` prints four things worth actually reading, not just skimming:
+a single-threshold cost sweep, the tuned two-threshold decision layer,
+the "$500 rule" cost-multiplier check, and a "confidently missed fraud"
+audit. See below for what each one is checking and why.
+
+Run tests with:
+
+```bash
+pip install pytest
+pytest tests/ -v
+```
+
+## What this reproduces, and why
+
+The write-up this project is based on made two points that are easy to
+state but easy to get wrong in practice. Both are implemented here as
+things the code actually checks, not just asserts in a docstring.
+
+**1. Threshold tuning alone can barely move total cost, and that's a
+signal, not a bug.** `train.py` runs a cost sweep across single
+thresholds and reports how flat or sharp the resulting cost curve is. On
+this synthetic dataset (tuned so false negatives cost ~15-30x more than
+false positives, similar to the ratio described in the original
+write-up), the curve is close to flat — most of the threshold range gives
+similar total cost. The reason isn't that the model is bad; it's that a
+small number of fraud cases get scored with near-zero confidence
+(`_is_confidently_missed` rows in the synthetic dataset, deliberately
+built to be statistically indistinguishable from legitimate
+transactions). No threshold fixes those — they need better
+features/signal, not better decisioning. `train.py`'s final section
+("Confidently-wrong audit") surfaces exactly these cases and their dollar
+value.
+
+**2. An intuitively "obviously correct" business rule can make total cost
+much worse, not better.** `src/decision.py::evaluate_business_rule` and
+`tests/test_decision.py::test_amount_business_rule_regression` implement
+and regression-test the specific "always flag transactions over $500"
+rule from the write-up. The synthetic dataset is deliberately shaped with
+a realistic chunk of legitimate big-ticket purchases (`data/generate_data.py`)
+so this isn't rigged to fail trivially — it fails for the same underlying
+reason the original rule did: a blanket amount cutoff floods reviewers
+with false positives on legitimate large purchases, and that flooding
+cost outweighs the benefit of the few fraud cases the rule incidentally
+catches. On a fresh `python train.py` run you should see roughly a
+2-4x cost increase from the rule; the exact number moves with the random
+seed and dataset size, which is itself part of the point — it's not a
+fixed constant, it's a property of the cost structure and the amount
+distribution.
+
+## Design decisions worth knowing about
+
+**Synthetic data, not a downloaded dataset.** The project generates its
+own transaction data (`data/generate_data.py`) instead of requiring a
+download, so it's fully self-contained and runnable offline from a fresh
+clone. The generator is built so a handful of features carry real signal
+(with noise / class overlap, not a clean separation), a few "confidently
+missed" fraud rows are statistically indistinguishable from legitimate
+ones, and legitimate transaction amounts are bimodal (mostly small,
+plus a meaningful chunk of legitimate big-ticket purchases) — all
+deliberate, and all documented inline in that file.
+
+**Fallback backends everywhere, tested, not just claimed.** `xgboost`
+and `shap` are the primary backends because they match the reference
+architecture, but both are optional: `src/model.py` falls back to
+`sklearn.ensemble.GradientBoostingClassifier`, and `src/explain.py` falls
+back to a z-score-weighted local attribution, if the primary packages
+aren't installed. Both fallback paths were used to produce the numbers in
+this README and pass the same test suite — they're not an untested
+afterthought.
+
+**The explainer never hands the LLM raw feature names or raw SHAP
+floats.** `src/explain.py` converts SHAP output into
+`(semantic_label, direction, relative_strength)` tuples using a fixed,
+bounded vocabulary before anything reaches `src/summarize.py`. This
+mirrors a specific lesson from the write-up: raw PCA component names
+(`V14 = -6.2`) are meaningless to a reviewer, and handing an LLM raw
+numbers invites either jargon-dumping or a plausible-sounding but
+ungrounded story. The LLM's system prompt also explicitly instructs it
+not to invent feature names or claim certainty beyond what it was given.
+
+**One-shot example over "vary your phrasing" instructions.** The system
+prompt in `src/summarize.py` includes one concrete worked example rather
+than only an instruction to avoid repetitive structure — per the
+write-up, telling a model to "vary your phrasing" tends not to work
+reliably, while giving it one real pattern to riff on does better.
+
+**Provider order: Groq, then OpenAI, then Anthropic.** `src/summarize.py`
+checks environment variables in that order and uses whichever key is
+present. This follows the write-up's account of one free-tier provider
+becoming unstable mid-project and Groq's Llama 3.3 tier being more
+reliable — that's a practical/cost note about free-tier availability, not
+a claim about model quality, and the module works the same way with any
+of the three.
+
+## What's intentionally left as an honest gap
+
+The write-up this is based on is explicit that it never rigorously
+verified the LLM summaries are never plausible-but-wrong — SHAP grounding
+reduces that risk but doesn't eliminate it, and doing so properly needs a
+human checking summaries against real transaction details at scale. This
+project doesn't solve that either. If you wire up a real LLM provider,
+treat `tests/test_explain_and_summarize.py` as a starting point, not
+proof the summaries are always faithful — it checks groundedness of the
+template fallback and the absence of raw feature-name leakage, not
+whether an LLM-generated summary is always accurate.
 
 ## Project layout
 
 ```
-agentic_fraud_detection/
-├── train.py                 # generate data + train + persist model
-├── demo.py                  # end-to-end Predict→Decide→Act traces
+fraud-agent/
+├── data/
+│   └── generate_data.py     # synthetic transaction dataset generator
+├── src/
+│   ├── model.py              # PREDICT: XGBoost / sklearn fallback
+│   ├── decision.py           # DECIDE: cost-based two-threshold layer
+│   ├── explain.py            # SHAP -> semantic signal labels
+│   ├── summarize.py          # ACT: LLM (or template fallback) summaries
+│   └── pipeline.py           # orchestrates predict -> decide -> act
+├── tests/
+│   ├── test_decision.py
+│   └── test_explain_and_summarize.py
+├── train.py                  # generate data, train, tune, save artifacts
+├── demo.py                   # run the full agent on sample transactions
+├── report.py                 # HTML dashboard: charts + sample decisions
+├── score.py                  # batch-score an arbitrary transactions CSV
 ├── requirements.txt
-├── README.md
-├── data/                    # train/test parquet (created by train.py)
-├── models/                  # xgb_model.joblib + metrics.json
-└── src/
-    ├── data_generator.py    # synthetic transaction generator
-    ├── model.py             # FraudModel (XGBoost + SHAP)
-    ├── decision.py          # CostBasedDecisionMaker
-    ├── explainer_agent.py   # ReviewerSummaryAgent (Act layer)
-    └── agent.py             # FraudDetectionAgent orchestrator
+├── .env.example
+└── README.md
 ```
-
----
-
-## Using the agent in your own code
-
-```python
-from src.agent import FraudDetectionAgent
-import pandas as pd
-
-agent = FraudDetectionAgent.from_pretrained("models")
-
-# single transaction (must contain the feature columns)
-row = pd.Series({
-    "transaction_id": "TXN-demo-001",
-    "amount": 1250.0,
-    "hour_of_day": 2,
-    "day_of_week": 5,
-    "distance_from_home_km": 420.0,
-    "distance_from_last_txn_km": 380.0,
-    "ratio_to_median_purchase_price": 4.7,
-    "repeat_retailer": 0,
-    "used_chip": 0,
-    "used_pin_number": 0,
-    "online_order": 1,
-})
-
-result = agent.process(row)
-print(result.action)            # e.g. "FLAG"
-print(result.reviewer_summary)
-print(result.top_shap_impacts)
-```
-
----
-
-## Swapping in a real LLM
-
-`src/explainer_agent.py` already contains a commented `LLMReviewerSummaryAgent` skeleton that talks to the OpenAI-compatible Groq (or any other) endpoint. The prompt contract is identical: feed only SHAP *directions* and human labels, never raw model internals. Replace the default `ReviewerSummaryAgent` when you have network access and an API key.
-
----
-
-## Design notes / lessons mirrored from the article
-
-1. **Threshold sweeps alone are often useless** when FN cost ≫ FP cost — the decision boundary barely moves expected cost. The interesting failures are the *confidently wrong* cases the model never approached.
-2. **Naïve business rules hurt**. An “always flag > $500” rule flooded reviewers with false positives and raised total cost dramatically.
-3. **Repetition is a bigger practical problem than hallucination** for reviewer summaries. Variation templates (or a single carefully chosen one-shot example) help more than “please be creative”.
-4. **Grounding is non-negotiable**. Withholding feature names that are meaningless to a human (or that the model could misuse) is the main defence against plausible-but-wrong explanations.
-
----
-

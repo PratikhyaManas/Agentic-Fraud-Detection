@@ -1,92 +1,75 @@
-#!/usr/bin/env python3
 """
-End-to-end demo of the agentic fraud-detection system.
+demo.py -- run the full predict -> decide -> act agent on sample
+transactions and print the results a reviewer would actually see.
 
-Loads a trained model (or trains one on the fly if missing), samples a few
-transactions from the test set, and prints the full Predict → Decide → Act
-trace for each.
+Run after train.py:
+    python demo.py
 """
-
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT))
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
-from src.agent import FraudDetectionAgent
-from src.data_generator import FEATURE_NAMES, generate_transactions, train_test_split_df
 from src.model import FraudModel
+from src.decision import CostBasedDecisionLayer, CostMatrix, Action
+from src.explain import Explainer
+from src.summarize import Summarizer
+from src.pipeline import FraudAgent
 
-MODEL_DIR = ROOT / "models"
-DATA_DIR = ROOT / "data"
+MODEL_PATH = Path("models/fraud_model.pkl")
+CONFIG_PATH = Path("models/decision_config.json")
+DATA_PATH = Path("data/transactions.csv")
 
-
-def ensure_model() -> FraudDetectionAgent:
-    if (MODEL_DIR / "xgb_model.joblib").exists():
-        print("Loading pre-trained model...")
-        return FraudDetectionAgent.from_pretrained(MODEL_DIR)
-
-    print("No saved model found — training a quick one...")
-    df = generate_transactions(n_samples=15_000, random_state=7)
-    train_df, _ = train_test_split_df(df)
-    model = FraudModel(n_estimators=120, max_depth=4)
-    model.fit(train_df[FEATURE_NAMES], train_df["is_fraud"])
-    model.save(MODEL_DIR)
-    return FraudDetectionAgent(model=model)
+ACTION_ICON = {Action.APPROVE: "✅ APPROVE", Action.REVIEW: "🟡 REVIEW", Action.BLOCK: "🔴 BLOCK"}
 
 
-def load_sample_transactions(n: int = 8) -> pd.DataFrame:
-    test_path = DATA_DIR / "test.parquet"
-    if test_path.exists():
-        df = pd.read_parquet(test_path)
-    else:
-        df = generate_transactions(n_samples=5_000, random_state=99)
-    # Prefer a mix of high- and low-risk looking rows
-    fraud = df[df["is_fraud"] == 1].sample(min(n // 2, len(df[df["is_fraud"] == 1])), random_state=1)
-    legit = df[df["is_fraud"] == 0].sample(n - len(fraud), random_state=1)
-    return pd.concat([fraud, legit]).sample(frac=1, random_state=2).reset_index(drop=True)
+def main():
+    if not MODEL_PATH.exists():
+        raise SystemExit("No trained model found. Run `python train.py` first.")
 
+    model = FraudModel.load(MODEL_PATH)
+    config = json.loads(CONFIG_PATH.read_text())
+    layer = CostBasedDecisionLayer(
+        config["threshold_review"], config["threshold_block"], CostMatrix(**config["cost_matrix"])
+    )
 
-def main() -> None:
-    agent = ensure_model()
-    samples = load_sample_transactions(8)
+    df = pd.read_csv(DATA_PATH)
+    background = df.sample(min(500, len(df)), random_state=1)
+    explainer = Explainer(model, background)
+    summarizer = Summarizer()
 
-    print("\n" + "=" * 72)
-    print("AGENTIC FRAUD DETECTION — LIVE TRACE")
-    print("=" * 72)
+    print(f"LLM summary provider: {summarizer.provider}"
+          + (f" ({summarizer.model})" if summarizer.model else " (no API key set, using grounded template fallback)"))
+    print(f"Explanation backend: {explainer.backend}\n")
 
-    results = []
-    for idx, row in samples.iterrows():
-        out = agent.process(row)
-        results.append(out.to_dict())
+    agent = FraudAgent(model, layer, explainer, summarizer)
 
-        print(f"\n--- Transaction {out.transaction_id} ---")
-        print(f"  Amount          : ${out.amount:,.2f}")
-        print(f"  Ground-truth    : {'FRAUD' if row['is_fraud'] == 1 else 'legit'}")
-        print(f"  P(fraud)        : {out.fraud_probability:.3%}")
-        print(f"  Action          : {out.action}")
-        print(f"  Decision reason : {out.decision_rationale}")
-        print(f"  Expected costs  : approve={out.expected_costs['approve']:.1f}  "
-              f"flag={out.expected_costs['flag']:.1f}  "
-              f"block={out.expected_costs['block']:.1f}")
-        print(f"  Reviewer summary:\n    {out.reviewer_summary}")
-        print("  Top SHAP impacts:")
-        for imp in out.top_shap_impacts[:3]:
-            print(
-                f"    • {imp['feature']:<32} "
-                f"value={imp['value']:<10.3g}  "
-                f"shap={imp['shap']:+.4f}  ({imp['direction']})"
-            )
+    # Pick a representative sample: a few fraud, a few legit, biased toward
+    # transactions that will actually get flagged so the demo shows the
+    # ACT layer doing something.
+    fraud_rows = df[df["Class"] == 1].sample(min(4, (df["Class"] == 1).sum()), random_state=2)
+    legit_rows = df[df["Class"] == 0].sample(4, random_state=3)
+    sample = pd.concat([fraud_rows, legit_rows]).sample(frac=1.0, random_state=4)
 
-    # Persist a machine-readable run log
-    out_path = ROOT / "demo_results.json"
-    out_path.write_text(json.dumps(results, indent=2, default=str))
-    print(f"\nFull results written to {out_path}")
+    outcomes = agent.run(sample)
+
+    for outcome in outcomes:
+        print("=" * 72)
+        print(f"Transaction #{outcome.index}  |  Amount: ${outcome.amount:,.2f}  |  "
+              f"Fraud probability: {outcome.probability:.2%}")
+        print(f"Decision: {ACTION_ICON[outcome.action]}")
+        if outcome.summary:
+            print(f"\nReviewer summary [{outcome.summary.provider}]:")
+            print(f"  {outcome.summary.text}")
+        print()
 
 
 if __name__ == "__main__":
