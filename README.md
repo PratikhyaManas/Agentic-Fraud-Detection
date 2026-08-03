@@ -16,18 +16,59 @@ than just prose claims (see "What this reproduces, and why" below).
 
 ## Architecture
 
+Quick view:
+
+```mermaid
+flowchart LR
+     TX[Transactions] --> PR[Predict\nsrc/model.py]
+     PR --> DE[Decide\nsrc/decision.py]
+     DE -->|approve| OUT[Scored Output]
+     DE -->|review or block| EX[Explain\nsrc/explain.py]
+     EX --> AC[Act\nsrc/summarize.py]
+     AC --> OUT
 ```
-transaction
-     │
-     ▼
-┌─────────────┐   fraud probability   ┌──────────────────┐   action    ┌────────────────────┐
-│   PREDICT   │ ───────────────────►  │      DECIDE       │ ──────────► │        ACT          │
-│ (src/model) │                       │ (src/decision)     │             │ (src/explain +      │
-│ XGBoost /   │                       │ cost-based          │             │  src/summarize)      │
-│ sklearn GBC │                       │ two-threshold        │             │ SHAP -> semantic     │
-└─────────────┘                       │ review/block layer   │             │ signals -> LLM       │
-                                       └──────────────────┘             │ reviewer summary      │
-                                                                          └────────────────────┘
+
+Detailed flow:
+
+```mermaid
+flowchart LR
+     %% Agentic fraud pipeline: train once, score repeatedly.
+
+     subgraph TRAIN[Offline Training and Calibration]
+          G[data/generate_data.py\nSynthetic transaction generator]
+          T[train.py\nFit model + tune decision thresholds]
+          M[(models/model.pkl)]
+          D[(models/decision_config.json)]
+          S[(models/test_split.csv)]
+
+          G --> T
+          T --> M
+          T --> D
+          T --> S
+     end
+
+     subgraph RUNTIME[Online/Batch Inference Agent]
+          X[data/transactions.csv or incoming events]
+          P[src/model.py\nPredict fraud probability]
+          C[src/decision.py\nCost-aware approve/review/block]
+          E[src/explain.py\nSHAP or fallback attributions]
+          A[src/summarize.py\nGrounded reviewer summary]
+          O[(outputs/scored.csv)]
+
+          X --> P --> C
+          C -->|review or block| E --> A --> O
+          C -->|approve| O
+     end
+
+     M -. loaded by .-> P
+     D -. loaded by .-> C
+
+     subgraph REPORTING[Evaluation and Reporting]
+          R[report.py and score.py\nMetrics, sensitivity, HTML report]
+          F[(outputs/metrics.json\noutputs/cost_sensitivity.json\noutputs/schema_report.json)]
+
+          O --> R --> F
+     end
 ```
 
 | Layer | Module | What it does |
