@@ -1,0 +1,29 @@
+[
+  {
+    "name": "default",
+    "cost_matrix": {
+      "cost_false_negative": 500,
+      "cost_false_positive": 25,
+      "cost_review": 3,
+      "cost_true_positive_extra": 0
+    }
+  },
+  {
+    "name": "high_review_cost",
+    "cost_matrix": {
+      "cost_false_negative": 500,
+      "cost_false_positive": 25,
+      "cost_review": 10,
+      "cost_true_positive_extra": 0
+    }
+  },
+  {
+    "name": "high_fn_cost",
+    "cost_matrix": {
+      "cost_false_negative": 1200,
+      "cost_false_positive": 25,
+      "cost_review": 3,
+      "cost_true_positive_extra": 0
+    }
+  }
+]

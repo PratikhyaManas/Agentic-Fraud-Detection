@@ -38,6 +38,27 @@ def test_total_cost_is_nonnegative_and_monotonic_in_fraud_cost():
     assert cost_expensive > cost_cheap
 
 
+def test_total_cost_matches_manual_action_accounting():
+    layer = CostBasedDecisionLayer(
+        threshold_review=0.4,
+        threshold_block=0.8,
+        cost_matrix=CostMatrix(
+            cost_false_negative=500,
+            cost_false_positive=25,
+            cost_review=3,
+            cost_true_positive_extra=2,
+        ),
+    )
+    y = np.array([1, 0, 1, 0, 1, 0])
+    p = np.array([0.2, 0.2, 0.6, 0.6, 0.95, 0.95])
+
+    # approve fraud: 1 * 500
+    # review total: 2 * 3 and review fraud extra: 1 * 2
+    # block legit: 1 * 25 and block fraud extra: 1 * 2
+    manual = 500 + 6 + 2 + 25 + 2
+    assert layer.total_cost(y, p) == manual
+
+
 def test_fit_thresholds_does_not_increase_cost_vs_default():
     model, _ = _small_trained_model()
     y_test, proba_test = model._y_test.values, model._proba_test

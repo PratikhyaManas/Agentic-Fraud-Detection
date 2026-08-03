@@ -25,15 +25,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
-
 from data.generate_data import generate
 from src.model import FraudModel
 from src.decision import CostBasedDecisionLayer, CostMatrix, evaluate_business_rule
+from src.runtime import maybe_load_dotenv
 
 DATA_PATH = Path("data/transactions.csv")
 MODEL_PATH = Path("models/fraud_model.pkl")
@@ -42,6 +37,8 @@ TEST_SPLIT_PATH = Path("models/test_split.csv")
 
 
 def main():
+    maybe_load_dotenv()
+
     if not DATA_PATH.exists():
         print(f"Generating synthetic dataset -> {DATA_PATH}")
         df = generate(n_legit=10_000, n_fraud=200, n_confidently_missed=3)

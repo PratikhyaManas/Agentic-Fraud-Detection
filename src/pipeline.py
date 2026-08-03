@@ -39,15 +39,17 @@ class FraudAgent:
         self,
         model: FraudModel,
         decision_layer: CostBasedDecisionLayer,
-        explainer: Explainer,
+        explainer: Optional[Explainer] = None,
         summarizer: Optional[Summarizer] = None,
         explain_actions=(Action.REVIEW, Action.BLOCK),
     ):
         self.model = model
         self.decision_layer = decision_layer
         self.explainer = explainer
-        self.summarizer = summarizer or Summarizer()
         self.explain_actions = set(explain_actions)
+        if self.explain_actions and self.explainer is None:
+            raise ValueError("An explainer is required when explain_actions is non-empty.")
+        self.summarizer = summarizer or (Summarizer() if self.explain_actions else None)
 
     def run(self, transactions: pd.DataFrame, top_k_features: int = 3) -> List[TransactionOutcome]:
         probs = self.model.predict_proba(transactions)
@@ -58,10 +60,10 @@ class FraudAgent:
             outcome = TransactionOutcome(
                 index=idx, amount=float(row["Amount"]), probability=p, action=decision.action,
             )
-            if decision.action in self.explain_actions:
+            if decision.action in self.explain_actions and self.explainer is not None:
                 row_df = transactions.iloc[[i]]
                 impacts = self.explainer.explain(row_df, top_k=top_k_features)
-                summary = self.summarizer.summarize(decision.action, p, outcome.amount, impacts)
+                summary = self.summarizer.summarize(decision.action, p, outcome.amount, impacts) if self.summarizer else None
                 outcome.impacts = impacts
                 outcome.summary = summary
             outcomes.append(outcome)

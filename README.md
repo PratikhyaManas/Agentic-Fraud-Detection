@@ -84,6 +84,20 @@ python score.py --input data/transactions.csv --output outputs/scored.csv
                       # through the full agent and writes a results CSV
                       # (probability, action, top signals, reviewer summary
                       # per row). Add --limit N for a quick test.
+
+python score.py --input data/transactions.csv --output outputs/scored_fast.csv --no-summaries
+                   # fast mode: pure probability + decision scoring without
+                   # explanation/summarization
+
+python score.py --input data/transactions.csv --output outputs/scored.csv \
+              --metrics-output outputs/metrics.json \
+              --schema-report-output outputs/schema_report.json \
+              --cost-sensitivity-output outputs/cost_sensitivity.json
+                   # writes evaluation metrics, schema validation report,
+                   # and threshold/cost sensitivity analysis (needs Class)
+
+python benchmark.py --input data/transactions.csv --rows 2000 --output outputs/benchmark.json
+                   # compares throughput of full mode vs no-summaries mode
 ```
 
 If you set an API key in `.env` (see Setup above), all three of
@@ -100,6 +114,44 @@ Run tests with:
 ```bash
 pip install pytest
 pytest tests/ -v
+```
+
+### Optional cost matrix scenarios
+
+`score.py` can export threshold/cost sensitivity for multiple business-cost
+assumptions in one run via `--cost-matrices`.
+
+Example `cost_matrices.json`:
+
+```json
+[
+     {
+          "name": "default",
+          "cost_matrix": {
+               "cost_false_negative": 500,
+               "cost_false_positive": 25,
+               "cost_review": 3,
+               "cost_true_positive_extra": 0
+          }
+     },
+     {
+          "name": "high_review_cost",
+          "cost_matrix": {
+               "cost_false_negative": 500,
+               "cost_false_positive": 25,
+               "cost_review": 10,
+               "cost_true_positive_extra": 0
+          }
+     }
+]
+```
+
+Then run:
+
+```bash
+python score.py --input data/transactions.csv --output outputs/scored.csv \
+     --cost-matrices cost_matrices.json \
+     --cost-sensitivity-output outputs/cost_sensitivity.json
 ```
 
 ## What this reproduces, and why

@@ -1,0 +1,21 @@
+{
+  "n_rows": 10200,
+  "fraud_rate": 0.0196078431372549,
+  "roc_auc": 0.9999060000000001,
+  "pr_auc": 0.9975773195876287,
+  "decision_cost_total": 503.0,
+  "decision_thresholds": {
+    "review": 0.15,
+    "block": 0.8481818181818181
+  },
+  "action_counts": {
+    "approve": 10000,
+    "block": 199,
+    "review": 1
+  },
+  "action_outcomes": {
+    "approved_fraud": 1,
+    "blocked_legit": 0,
+    "reviewed_total": 1
+  }
+}

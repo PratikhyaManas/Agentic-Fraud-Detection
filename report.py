@@ -19,7 +19,6 @@ Output:
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import matplotlib
@@ -29,17 +28,10 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_curve, auc
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
-
-from src.model import FraudModel
-from src.decision import CostBasedDecisionLayer, CostMatrix, evaluate_business_rule, Action
-from src.explain import Explainer
+from src.decision import evaluate_business_rule, Action
 from src.summarize import Summarizer
 from src.pipeline import FraudAgent
+from src.runtime import build_agent, load_model_and_decision_layer, maybe_load_dotenv
 
 MODEL_PATH = Path("models/fraud_model.pkl")
 CONFIG_PATH = Path("models/decision_config.json")
@@ -127,23 +119,20 @@ def _decision_rows_html(agent: FraudAgent, sample: pd.DataFrame) -> str:
 
 
 def build_report():
+    maybe_load_dotenv()
+
     if not TEST_SPLIT_PATH.exists():
         raise SystemExit("No saved test split found. Run `python train.py` first (this version of it, "
                           "which now saves models/test_split.csv).")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    model = FraudModel.load(MODEL_PATH)
-    config = json.loads(CONFIG_PATH.read_text())
+    model, layer, config = load_model_and_decision_layer(MODEL_PATH, CONFIG_PATH)
     df = pd.read_csv(DATA_PATH)
 
     test_split = pd.read_csv(TEST_SPLIT_PATH, index_col="orig_index")
     proba_test = test_split["fraud_probability"].values
     y_test = test_split["Class"]
     amounts_test = test_split["Amount"].values
-
-    layer = CostBasedDecisionLayer(
-        config["threshold_review"], config["threshold_block"], CostMatrix(**config["cost_matrix"])
-    )
 
     sweep = layer.sweep_single_threshold(y_test.values, proba_test)
     best_row = sweep.loc[sweep["total_cost"].idxmin()]
@@ -153,10 +142,14 @@ def build_report():
     _save_cost_sweep(sweep, best_row["threshold"], OUT_DIR / "cost_sweep.png")
     _save_business_rule_chart(rule_result["base_cost"], rule_result["rule_cost"], OUT_DIR / "business_rule.png")
 
-    background = df.sample(min(500, len(df)), random_state=1)
-    explainer = Explainer(model, background)
     summarizer = Summarizer()
-    agent = FraudAgent(model, layer, explainer, summarizer)
+    agent: FraudAgent = build_agent(
+        model=model,
+        decision_layer=layer,
+        background=df,
+        summarizer=summarizer,
+        explain_actions=(Action.REVIEW, Action.BLOCK),
+    )
 
     fraud_rows = df[df["Class"] == 1].sample(min(3, (df["Class"] == 1).sum()), random_state=2)
     legit_rows = df[df["Class"] == 0].sample(3, random_state=3)
@@ -199,7 +192,7 @@ def build_report():
   <div class="card"><div class="label">Backend</div><div class="value">{config['backend']}</div></div>
   <div class="card"><div class="label">ROC-AUC</div><div class="value">{config['roc_auc']:.4f}</div></div>
   <div class="card"><div class="label">PR-AUC</div><div class="value">{config['pr_auc']:.4f}</div></div>
-  <div class="card"><div class="label">Explanation backend</div><div class="value" style="font-size:1.1em;">{explainer.backend}</div></div>
+  <div class="card"><div class="label">Explanation backend</div><div class="value" style="font-size:1.1em;">{agent.explainer.backend}</div></div>
 </div>
 
 <h2>Predict: model performance</h2>

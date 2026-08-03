@@ -1,0 +1,66 @@
+{
+  "n_rows": 10200,
+  "n_scenarios": 3,
+  "scenarios": [
+    {
+      "name": "default",
+      "cost_matrix": {
+        "cost_false_negative": 500,
+        "cost_false_positive": 25,
+        "cost_review": 3,
+        "cost_true_positive_extra": 0
+      },
+      "single_threshold": {
+        "best_threshold": 0.8200000000000001,
+        "best_total_cost": 500.0,
+        "worst_total_cost": 1150.0,
+        "spread": 650.0
+      },
+      "two_threshold": {
+        "review_threshold": 0.15,
+        "block_threshold": 0.8481818181818181,
+        "total_cost": 503.0
+      }
+    },
+    {
+      "name": "high_review_cost",
+      "cost_matrix": {
+        "cost_false_negative": 500,
+        "cost_false_positive": 25,
+        "cost_review": 10,
+        "cost_true_positive_extra": 0
+      },
+      "single_threshold": {
+        "best_threshold": 0.8200000000000001,
+        "best_total_cost": 500.0,
+        "worst_total_cost": 1150.0,
+        "spread": 650.0
+      },
+      "two_threshold": {
+        "review_threshold": 0.15,
+        "block_threshold": 0.8481818181818181,
+        "total_cost": 510.0
+      }
+    },
+    {
+      "name": "high_fn_cost",
+      "cost_matrix": {
+        "cost_false_negative": 1200,
+        "cost_false_positive": 25,
+        "cost_review": 3,
+        "cost_true_positive_extra": 0
+      },
+      "single_threshold": {
+        "best_threshold": 0.8200000000000001,
+        "best_total_cost": 1200.0,
+        "worst_total_cost": 2400.0,
+        "spread": 1200.0
+      },
+      "two_threshold": {
+        "review_threshold": 0.15,
+        "block_threshold": 0.8481818181818181,
+        "total_cost": 1203.0
+      }
+    }
+  ]
+}

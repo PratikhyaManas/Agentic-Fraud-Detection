@@ -61,6 +61,31 @@ class DecisionResult:
     threshold_block: float
 
 
+def _total_cost_from_action_masks(
+    y_true: np.ndarray,
+    approve_mask: np.ndarray,
+    review_mask: np.ndarray,
+    block_mask: np.ndarray,
+    cost_matrix: CostMatrix,
+) -> float:
+    y_true = np.asarray(y_true).astype(int)
+    cm = cost_matrix
+
+    approve_fraud = np.sum(approve_mask & (y_true == 1))
+    review_count = np.sum(review_mask)
+    review_fraud = np.sum(review_mask & (y_true == 1))
+    block_legit = np.sum(block_mask & (y_true == 0))
+    block_fraud = np.sum(block_mask & (y_true == 1))
+
+    total = 0.0
+    total += cm.cost_false_negative * approve_fraud
+    total += cm.cost_review * review_count
+    total += cm.cost_true_positive_extra * review_fraud
+    total += cm.cost_false_positive * block_legit
+    total += cm.cost_true_positive_extra * block_fraud
+    return float(total)
+
+
 class CostBasedDecisionLayer:
     """Two-threshold decisioning: below `threshold_review` -> approve,
     between the two thresholds -> review, above `threshold_block` -> block.
@@ -90,21 +115,17 @@ class CostBasedDecisionLayer:
 
     # ---------------------------------------------------------- cost math
     def total_cost(self, y_true: np.ndarray, probabilities: np.ndarray) -> float:
-        cm = self.cost_matrix
-        total = 0.0
-        for y, p in zip(y_true, probabilities):
-            action = self.decide(p).action
-            if action == Action.APPROVE:
-                total += cm.cost_false_negative if y == 1 else 0.0
-            elif action == Action.REVIEW:
-                total += cm.cost_review
-                if y == 1:
-                    total += cm.cost_true_positive_extra
-                # a reviewed legit transaction that gets cleared costs only
-                # the review time, already counted above
-            elif action == Action.BLOCK:
-                total += cm.cost_false_positive if y == 0 else cm.cost_true_positive_extra
-        return total
+        probabilities = np.asarray(probabilities)
+        approve_mask = probabilities < self.threshold_review
+        review_mask = (probabilities >= self.threshold_review) & (probabilities < self.threshold_block)
+        block_mask = probabilities >= self.threshold_block
+        return _total_cost_from_action_masks(
+            y_true,
+            approve_mask,
+            review_mask,
+            block_mask,
+            self.cost_matrix,
+        )
 
     # --------------------------------------------------------- calibration
     def sweep_single_threshold(
@@ -161,19 +182,21 @@ def evaluate_business_rule(
     """
     base_cost = base_layer.total_cost(y_true, probabilities)
 
-    cm = base_layer.cost_matrix
-    rule_cost = 0.0
-    for y, p, amt in zip(y_true, probabilities, amounts):
-        forced_review = amt > amount_threshold
-        action = Action.REVIEW if forced_review else base_layer.decide(p).action
-        if action == Action.APPROVE:
-            rule_cost += cm.cost_false_negative if y == 1 else 0.0
-        elif action == Action.REVIEW:
-            rule_cost += cm.cost_review
-            if y == 1:
-                rule_cost += cm.cost_true_positive_extra
-        elif action == Action.BLOCK:
-            rule_cost += cm.cost_false_positive if y == 0 else cm.cost_true_positive_extra
+    probabilities = np.asarray(probabilities)
+    amounts = np.asarray(amounts)
+    forced_review = amounts > amount_threshold
+
+    approve_mask = (probabilities < base_layer.threshold_review) & ~forced_review
+    block_mask = (probabilities >= base_layer.threshold_block) & ~forced_review
+    review_mask = ~(approve_mask | block_mask)
+
+    rule_cost = _total_cost_from_action_masks(
+        y_true,
+        approve_mask,
+        review_mask,
+        block_mask,
+        base_layer.cost_matrix,
+    )
 
     return {
         "base_cost": base_cost,

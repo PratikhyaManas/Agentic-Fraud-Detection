@@ -7,22 +7,13 @@ Run after train.py:
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pandas as pd
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
-
-from src.model import FraudModel
-from src.decision import CostBasedDecisionLayer, CostMatrix, Action
-from src.explain import Explainer
+from src.decision import Action
 from src.summarize import Summarizer
-from src.pipeline import FraudAgent
+from src.runtime import build_agent, load_model_and_decision_layer, maybe_load_dotenv
 
 MODEL_PATH = Path("models/fraud_model.pkl")
 CONFIG_PATH = Path("models/decision_config.json")
@@ -32,25 +23,26 @@ ACTION_ICON = {Action.APPROVE: "✅ APPROVE", Action.REVIEW: "🟡 REVIEW", Acti
 
 
 def main():
+    maybe_load_dotenv()
+
     if not MODEL_PATH.exists():
         raise SystemExit("No trained model found. Run `python train.py` first.")
 
-    model = FraudModel.load(MODEL_PATH)
-    config = json.loads(CONFIG_PATH.read_text())
-    layer = CostBasedDecisionLayer(
-        config["threshold_review"], config["threshold_block"], CostMatrix(**config["cost_matrix"])
-    )
+    model, layer, _ = load_model_and_decision_layer(MODEL_PATH, CONFIG_PATH)
 
     df = pd.read_csv(DATA_PATH)
-    background = df.sample(min(500, len(df)), random_state=1)
-    explainer = Explainer(model, background)
     summarizer = Summarizer()
 
     print(f"LLM summary provider: {summarizer.provider}"
           + (f" ({summarizer.model})" if summarizer.model else " (no API key set, using grounded template fallback)"))
-    print(f"Explanation backend: {explainer.backend}\n")
-
-    agent = FraudAgent(model, layer, explainer, summarizer)
+    agent = build_agent(
+        model=model,
+        decision_layer=layer,
+        background=df,
+        summarizer=summarizer,
+        explain_actions=(Action.REVIEW, Action.BLOCK),
+    )
+    print(f"Explanation backend: {agent.explainer.backend}\n")
 
     # Pick a representative sample: a few fraud, a few legit, biased toward
     # transactions that will actually get flagged so the demo shows the
